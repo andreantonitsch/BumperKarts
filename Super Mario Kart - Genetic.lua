@@ -23,8 +23,13 @@ start_x = 3712
 stary_y = 2288
 start_vector = {start_x - origin_x , stary_y - origin_y}
 
+--small x, big x, small y, big y
+fitless_zone = { 3250, 4056, 2200, 2900 }
+
 track = {}
 matrix = {}
+track_size = 4100
+
 
 species_counter = 1
 
@@ -70,7 +75,6 @@ end
 function gen_track()
 		--generates the track - a 4000x4000 matrix of booleans
 		--true means that track[i][j] is in the main part of the track 
-		track_size = 4000
 		track = {}
 		for i=1,track_size do
 			track[i]={}
@@ -178,10 +182,18 @@ function angle_vectors(v1, v2)
 end
 
 function get_fitness_alpha( x, y)
+	-- corrects some odd edge cases. Ideally, we'd only track fitness moving 'forward'.
+	-- a better fitness function is needed for further accuracy.
+	-- this rectangle prevents yoshi doing donuts to max out fitness.
+	if x >= fitless_zone[1] and  x <= fitless_zone[2] and y >= fitless_zone[3] and y <= fitless_zone[4] then
+		return 0.0
+	end
+
 	local v1 = {x - origin_x , y - origin_y}
 	local angle = angle_vectors( start_vector, v1)
 	--local angle = angle_vectors(  v1, start_vector)
 	return angle
+	
 end
 
 function clearInput()
@@ -376,14 +388,16 @@ function generate_input(specimen, x, y)
 	accel = math.sin(accel)
 	turn = math.sin(turn)
 	
-	if accel >= 0 then
-		inputs["P1 " .. ButtonNames[1]] = true
-	else
-		inputs["P1 " .. ButtonNames[1]] = false
-	end
+	inputs["P1 " .. ButtonNames[1]] = true
 	
-	gui.drawText(0, 24+155, "turn: " .. tostring(turn), color, 9)
-	gui.drawText(0, 24+165, "accel: " .. tostring(accel), color, 9)
+	--if accel >= 0 then
+	--	inputs["P1 " .. ButtonNames[1]] = true
+	--else
+	--	inputs["P1 " .. ButtonNames[1]] = false
+	--end
+	
+	gui.drawText(0, 24+160, "turn: " .. tostring(turn), color, 9)
+	gui.drawText(0, 24+170, "accel: " .. tostring(accel), color, 9)
 	
 	if (turn >= -0.33 and turn <= 0.33) then
 		inputs["P1 " .. ButtonNames[3]] = false
@@ -399,6 +413,45 @@ function generate_input(specimen, x, y)
 
 end
 
+function save_population()
+	local f = io.open("track.txt","r")
+	for line in file:lines() do
+		if(line == "inner") then inner_outer = true
+		elseif(line == "outer") then inner_outer = false
+		else
+			x,y = line:gmatch(line,'[0-9]+')
+			if inner_outer then
+				table.insert(inner_x,tonumber(x))
+				table.insert(inner_y,tonumber(y))
+			else
+				table.insert(outer_x,tonumber(x))
+				table.insert(outer_y,tonumber(y))
+			end
+		end
+	end
+	f:close()
+end
+
+function load_population()
+	local f = io.open("track.txt","r")
+	for line in file:lines() do
+		if(line == "inner") then inner_outer = true
+		elseif(line == "outer") then inner_outer = false
+		else
+			x,y = line:gmatch(line,'[0-9]+')
+			if inner_outer then
+				table.insert(inner_x,tonumber(x))
+				table.insert(inner_y,tonumber(y))
+			else
+				table.insert(outer_x,tonumber(x))
+				table.insert(outer_y,tonumber(y))
+			end
+		end
+	end
+	f:close()
+end
+
+
 pool = new_pool()
 generation_count = 0
 gen_size = 0
@@ -412,7 +465,7 @@ while true do
 	-- run a generation
 	for i, specimen in pairs(pool.specimens) do
 	
-		savestate.load(Filename);
+		--savestate.load(Filename);
 		stale = 0
 		specimen = pool.specimens[i]
 		
@@ -427,16 +480,17 @@ while true do
 
 			local new_fit =  get_fitness_alpha(x, y)
 			local corrected_fit = new_fit
+			local in_track = is_in_track(x, y, track)
+			--if is_in_track(x, y, track) then
+			--	corrected_fit = new_fit * fit_correction
+			--end
 			
-			if not is_in_track(x, y, track) then
-				corrected_fit = new_fit * fit_correction
-			end
-			
-			if specimen.max_fit < corrected_fit then
+			if (specimen.max_fit < corrected_fit) and (corrected_fit <= 6.0) then
 				specimen.max_fit = corrected_fit
-				max_fit_change = true
+				
 				if specimen.max_fit > maximum_fit then
 					maximum_fit = specimen.max_fit
+					max_fit_change = true
 				end
 				stale = 0
 			else
@@ -448,11 +502,14 @@ while true do
 			gui.drawText(0, 24+120, "fit: " .. tostring(new_fit), color, 9)
 			
 			gui.drawText(0, 24+130, "gen: " .. tostring(generation_count), color, 9)
-			gui.drawText(0, 24+145, "stale: " .. tostring(stale), color, 9)
+			gui.drawText(0, 24+140, "stale: " .. tostring(stale), color, 9)
+			gui.drawText(0, 24+150, "in track: " .. tostring(in_track), color, 9)
+			
+			
 			
 			generate_input(specimen, x, y)
 			
-			joypad.set(inputs)
+			--joypad.set(inputs)
 			emu.frameadvance()
 		end
 		
@@ -467,7 +524,7 @@ while true do
 	generation_count = generation_count +1
 	console.log(gen_size)
 	if generation_count % 50 then
-		mutation_rate = mutation_rate - 0.01
+		mutation_rate = mutation_rate - 0.5
 	end
 	
 	if mutation_rate  < 0.01 then
