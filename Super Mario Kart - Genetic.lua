@@ -40,13 +40,13 @@ mutation_rate = 1
 
 -- State parameters
 poli_length = 10
-exp_start_range = {-2, 2}
-coef_start_range = {-20, 20}
+exp_start_range = {-2.0, 2.0}
+coef_start_range = {-20.0, 20.0}
 
 accelexp_mutation_range = {-0.1, 0.1}
-accelcoef_mutation_range = {-10, 10}
+accelcoef_mutation_range = {-1.0, 2.0}
 turnexp_mutation_range = {-0.1, 0.1}
-turncoef_mutation_range = {-10, 10}
+turncoef_mutation_range = {-1.0, 2.0}
 
 fit_correction = 0.75
 
@@ -55,7 +55,7 @@ inner_x,inner_y,outer_x,outer_y = {}, {}, {}, {}
 
 function read_track()
 	local f = io.open("track.txt","r")
-	for line in file:lines() do
+	for line in f:lines() do
 		if(line == "inner") then inner_outer = true
 		elseif(line == "outer") then inner_outer = false
 		else
@@ -227,11 +227,12 @@ function new_specimen()
 	
 	
 	for i = 1, poli_length do
-		turn_coefs[i] = math.random(coef_start_range[1], coef_start_range[2])
-		turn_exps[i] = math.random(exp_start_range[1], exp_start_range[2])
+		turn_coefs[i] = math.random() * coef_start_range[2]
+		turn_exps[i] = math.random() * exp_start_range[2] --math.random(exp_start_range[1], exp_start_range[2])
 		
-		accel_coefs[i] = math.random(coef_start_range[1], coef_start_range[2])
-		accel_exps[i] = math.random(exp_start_range[1], exp_start_range[2])	
+		accel_coefs[i] = math.random() *coef_start_range[2]
+		accel_exps[i] =  math.random() * exp_start_range[2] --math.random(exp_start_range[1], exp_start_range[2])	
+		
 	end
 	
 	specimen.turn_coeficients	= turn_coefs
@@ -283,10 +284,10 @@ end
 function mutate_specimen(spec1)
 	
 	local i = math.random(1, poli_length)
-	spec1.accel_coeficients[i] = spec1.accel_coeficients[i] + (math.random(accelcoef_mutation_range[1], accelcoef_mutation_range[2]) * mutation_rate)
-	spec1.accel_exponents[i] = spec1.accel_exponents[i] + (math.random(accelexp_mutation_range[1], accelexp_mutation_range[2]) * mutation_rate)
-	spec1.turn_coeficients[i] = spec1.turn_coeficients[i] + (math.random(turncoef_mutation_range[1], turncoef_mutation_range[2])* mutation_rate)
-	spec1.turn_exponents[i] = spec1.turn_exponents[i] + (math.random(turnexp_mutation_range[1], turnexp_mutation_range[2]) * mutation_rate)
+	spec1.accel_coeficients[i] = spec1.accel_coeficients[i] + ((math.random() * accelcoef_mutation_range[2]) * mutation_rate)
+	spec1.accel_exponents[i] = spec1.accel_exponents[i] + ((math.random() * accelexp_mutation_range[2]) * mutation_rate)
+	spec1.turn_coeficients[i] = spec1.turn_coeficients[i] + ((math.random() * turncoef_mutation_range[2])* mutation_rate)
+	spec1.turn_exponents[i] = spec1.turn_exponents[i] + ((math.random() *  turnexp_mutation_range[2]) * mutation_rate)
 	
 	return spec1
 end
@@ -414,41 +415,39 @@ function generate_input(specimen, x, y)
 end
 
 function save_population()
-	local f = io.open("track.txt","r")
-	for line in file:lines() do
-		if(line == "inner") then inner_outer = true
-		elseif(line == "outer") then inner_outer = false
-		else
-			x,y = line:gmatch(line,'[0-9]+')
-			if inner_outer then
-				table.insert(inner_x,tonumber(x))
-				table.insert(inner_y,tonumber(y))
-			else
-				table.insert(outer_x,tonumber(x))
-				table.insert(outer_y,tonumber(y))
-			end
+	local f = io.open("generation".. tostring(generation_count) ..".txt","w")
+	f:write(tostring(num_specimens) .. "\n")
+	f:write(tostring(poli_length) .. "\n")
+	
+	for i, spec in pairs(pool.specimens) do
+	
+		f:write(tostring(spec.max_fit) .. " ")
+		
+		for j = 1, poli_length do
+			f:write(tostring(spec.accel_coeficients[j]) .. " ")
 		end
+		
+		for j = 1, poli_length do
+			f:write(tostring(spec.accel_exponents[j]) .. " ")
+		end
+		
+		for j = 1, poli_length do
+			f:write(tostring(spec.turn_coeficients[j]) .. " ")
+		end
+		
+		for j = 1, poli_length do
+			f:write(tostring(spec.turn_exponents[j]) .. " ")
+		end
+		
+		f:write("\n")
 	end
+	
 	f:close()
+	
 end
 
 function load_population()
-	local f = io.open("track.txt","r")
-	for line in file:lines() do
-		if(line == "inner") then inner_outer = true
-		elseif(line == "outer") then inner_outer = false
-		else
-			x,y = line:gmatch(line,'[0-9]+')
-			if inner_outer then
-				table.insert(inner_x,tonumber(x))
-				table.insert(inner_y,tonumber(y))
-			else
-				table.insert(outer_x,tonumber(x))
-				table.insert(outer_y,tonumber(y))
-			end
-		end
-	end
-	f:close()
+
 end
 
 
@@ -461,11 +460,11 @@ max_fit_change = false
 gen_track()
 
 while true do
-	
+
 	-- run a generation
 	for i, specimen in pairs(pool.specimens) do
 	
-		--savestate.load(Filename);
+		savestate.load(Filename);
 		stale = 0
 		specimen = pool.specimens[i]
 		
@@ -509,7 +508,7 @@ while true do
 			
 			generate_input(specimen, x, y)
 			
-			--joypad.set(inputs)
+			joypad.set(inputs)
 			emu.frameadvance()
 		end
 		
@@ -520,12 +519,14 @@ while true do
 		
 	end
 	
+	save_population()
+
 	new_generation()
 	generation_count = generation_count +1
 	console.log(gen_size)
-	if generation_count % 50 then
-		mutation_rate = mutation_rate - 0.5
-	end
+	
+	mutation_rate = mutation_rate - 0.01
+
 	
 	if mutation_rate  < 0.01 then
 		break
