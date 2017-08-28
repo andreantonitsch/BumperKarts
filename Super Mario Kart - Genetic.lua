@@ -24,10 +24,12 @@ stary_y = 2288
 start_vector = {start_x - origin_x , stary_y - origin_y}
 
 --small x, big x, small y, big y
-fitless_zone = { 3250, 4056, 2200, 2900 }
+fitless_zone = { 3250, 4056, 1700, 2900 }
+checkpoint = { 45, 660, 1290,  1790 }
+red_zone = { 3250, 4056, 2400, 2900 }
 
 track = {}
-matrix = {}
+
 track_size = 4100
 
 
@@ -57,12 +59,22 @@ fit_correction = 0.75
 inner_x,inner_y,outer_x,outer_y = {}, {}, {}, {}
 
 function read_track()
-	local f = io.open("track.txt","r")
+	local f = io.open("track_points.txt","r")
+	local inner_outer = false
 	for line in f:lines() do
-		if(line == "inner") then inner_outer = true
-		elseif(line == "outer") then inner_outer = false
+		local line = line:gsub("^%s*(.-)%s*$", "%1")
+		if (line == "inner") then
+			inner_outer = true
+		elseif(line == "outer")
+			then inner_outer = false
 		else
-			x,y = line:gmatch(line,'[0-9]+')
+			if(line == "start") then 
+				break
+			end
+			local num_iter = string.gmatch(line,'[0-9]+')
+			local x = num_iter()
+			local y = num_iter()
+			
 			if inner_outer then
 				table.insert(inner_x,tonumber(x))
 				table.insert(inner_y,tonumber(y))
@@ -70,7 +82,9 @@ function read_track()
 				table.insert(outer_x,tonumber(x))
 				table.insert(outer_y,tonumber(y))
 			end
+
 		end
+
 	end
 	f:close()
 end
@@ -89,22 +103,22 @@ function gen_track()
 		--that the inner and outer arrays of points are going to be the same size
 		--so I first iterate the inner points and then the outer ones
 		--(the two inner arrays obviously have the same size though as well as the two outer ones)
-		for i=1,#inner_x do
-			local curr_x = inner_x[math.fmod(i,#inner_x)]
-			local curr_y = inner_y[math.fmod(i,#inner_x)]
-			local next_x = inner_x[math.fmod(i+1,#inner_x)]
-			local next_y = inner_y[math.fmod(i+1,#inner_x)]
-			draw_line(curr_x,curr_y,next_x,next_y,matrix)
+		for i=1,#inner_x-1 do
+			local curr_x = inner_x[i]
+			local curr_y = inner_y[i]
+			local next_x = inner_x[i+1]
+			local next_y = inner_y[i+1]
+			draw_line(curr_x,curr_y,next_x,next_y,track)
 		end
 		--time to draw the outer lines...
-		for i=1,#outer_x do
-			local curr_x = outer_x[math.fmod(i,#inner_x)]
-			local curr_y = outer_y[math.fmod(i,#inner_x)]
-			local next_x = outer_x[math.fmod(i+1,#inner_x)]
-			local next_y = outer_y[math.fmod(i+1,#inner_x)]
-			draw_line(curr_x,curr_y,next_x,next_y,matrix)
+		for i=1,#outer_x-1 do
+			local curr_x = outer_x[i]
+			local curr_y = outer_y[i]
+			local next_x = outer_x[i+1]
+			local next_y = outer_y[i+1]
+			draw_line(curr_x,curr_y,next_x,next_y,track)
 		end
-		fill_track(matrix)
+		fill_track(track)
 end
 
 --merely an implementation of Bresenham's algorithm
@@ -112,6 +126,7 @@ end
 --for as many details as possible: https://pdfs.semanticscholar.org/c443/c0b5f74f75d87193bc373cdc5b0b61cf28fd.pdf
 --should work right out of the box
 function draw_line(xi,yi,xf,yf,matrix)
+
 		local delta_x = xf-xi
 		local delta_y = yf-yi
 		--taking my chances here with a possible division by zero
@@ -136,13 +151,13 @@ end
 --every time I hit a "true" in the matrix (which is going to a point along one of the lines
 --previously drawn with the draw_line() method), I change my behaviour to the opposite
 function fill_track(matrix)
-		for i=1,#matrix do
+		for i=1,#matrix-1 do
 			local must_paint = false
 			for j=1,#matrix do
 				--if a point is hit...
 				if matrix[i][j] then
 					--then I change my behaviour
-					must_paint = not must_paint
+					must_paint =  matrix[i+1][j] or (not must_paint)
 				--if must_paint is true, then everything is going to be painted until I hit
 				--another true. otherwise, everything is NOT going to be painted until then
 				else 
@@ -249,11 +264,11 @@ function new_specimen()
 	
 	
 	for i = 1, poli_length do
-		turn_coefs[i] = math.random() * coef_start_range[2]
-		turn_exps[i] = math.random() * exp_start_range[2] --math.random(exp_start_range[1], exp_start_range[2])
+		turn_coefs[i] = math.random() * coef_start_range[2] * math.random(-1,1)
+		turn_exps[i] = math.random() * exp_start_range[2] * math.random(-1,1) --math.random(exp_start_range[1], exp_start_range[2])
 		
-		accel_coefs[i] = math.random() *coef_start_range[2]
-		accel_exps[i] =  math.random() * exp_start_range[2] --math.random(exp_start_range[1], exp_start_range[2])	
+		accel_coefs[i] = math.random() *coef_start_range[2] * math.random(-1,1)
+		accel_exps[i] =  math.random() * exp_start_range[2] * math.random(-1,1) --math.random(exp_start_range[1], exp_start_range[2])	
 		
 	end
 	
@@ -289,10 +304,10 @@ end
 function mutate_specimen(spec1)
 	
 	local i = math.random(1, poli_length)
-	spec1.accel_coeficients[i] = spec1.accel_coeficients[i] + ((math.random() * accelcoef_mutation_range[2]) * mutation_rate)
-	spec1.accel_exponents[i] = spec1.accel_exponents[i] + ((math.random() * accelexp_mutation_range[2]) * mutation_rate)
-	spec1.turn_coeficients[i] = spec1.turn_coeficients[i] + ((math.random() * turncoef_mutation_range[2])* mutation_rate)
-	spec1.turn_exponents[i] = spec1.turn_exponents[i] + ((math.random() *  turnexp_mutation_range[2]) * mutation_rate)
+	spec1.accel_coeficients[i] = spec1.accel_coeficients[i] + ((math.random() * accelcoef_mutation_range[2]) * mutation_rate * math.random(-1,1))
+	spec1.accel_exponents[i] = spec1.accel_exponents[i] + ((math.random() * accelexp_mutation_range[2]) * mutation_rate * math.random(-1,1))
+	spec1.turn_coeficients[i] = spec1.turn_coeficients[i] + ((math.random() * turncoef_mutation_range[2])* mutation_rate * math.random(-1,1))
+	spec1.turn_exponents[i] = spec1.turn_exponents[i] + ((math.random() *  turnexp_mutation_range[2]) * mutation_rate * math.random(-1,1))
 	
 	return spec1
 end
@@ -384,8 +399,8 @@ if not sin_state then
 		local left = turn >= 0 
 
 		
-		gui.drawText(0, 24+160, "turn: " .. tostring(turn), color, 9)
-		gui.drawText(0, 24+170, "accel: " .. tostring(accel), color, 9)
+		gui.drawText(0, 24+160, "left:  " .. tostring(turn), color, 9)
+		gui.drawText(0, 24+170, "right: " .. tostring(accel), color, 9)
 		
 		inputs["P1 " .. ButtonNames[1]] = true
 		if right and left then
@@ -419,12 +434,6 @@ else
 		turn = math.sin(turn)
 		
 		inputs["P1 " .. ButtonNames[1]] = true
-		
-		--if accel >= 0 then
-		--	inputs["P1 " .. ButtonNames[1]] = true
-		--else
-		--	inputs["P1 " .. ButtonNames[1]] = false
-		--end
 		
 		gui.drawText(0, 24+160, "turn: " .. tostring(turn), color, 9)
 		gui.drawText(0, 24+170, "accel: " .. tostring(accel), color, 9)
@@ -504,7 +513,8 @@ gen_size = 0
 maximum_fit = 0
 max_fit_change = false
 
-gen_track()
+--read_track()
+--gen_track()
 
 while true do
 
@@ -515,48 +525,58 @@ while true do
 		stale = 0
 		specimen = pool.specimens[i]
 		specimen.max_fit = 0
-		
+		local checkpoint_reached = false
 		-- run a species
 		while  stale < 150 do
 			local x = memory.read_s16_le(px)
 			local y = memory.read_s16_le(py)
 			
-			gui.drawText(0, 24+80, "x: " .. tostring(x), color, 9)
-			gui.drawText(0, 24+95, "y: " .. tostring(y), color, 9)
-
-			local new_fit =  get_fitness_alpha(x, y)
-			local corrected_fit = new_fit
-			local in_track = is_in_track(x, y, track)
-			--if is_in_track(x, y, track) then
-			--	corrected_fit = new_fit * fit_correction
-			--end
-			
-			if (specimen.max_fit < corrected_fit) and (corrected_fit <= 6.0) then
-				specimen.max_fit = corrected_fit
-				
-				if specimen.max_fit > maximum_fit then
-					maximum_fit = specimen.max_fit
-					max_fit_change = true
-				end
-				stale = 0
+			if x >= red_zone[1] and  x <= red_zone[2] and y >= red_zone[3] and y <= red_zone[4] and (not checkpoint_reached) then
+				specimen.max_fit = 0
+				break
 			else
-				stale = stale + 1
-			end
+			
+				if x >= checkpoint[1] and  x <=  checkpoint[2] and y >=  checkpoint[3] and y <=  checkpoint[4] then
+					checkpoint_reached = true
+				end	
+				
+				gui.drawText(0, 24+80, "x: " .. tostring(x), color, 9)
+				gui.drawText(0, 24+95, "y: " .. tostring(y), color, 9)
 
-			gui.drawText(0, 24+65, "gen size: " .. tostring(gen_size), color, 9)
-			gui.drawText(0, 24+110, "max fit: " .. tostring(specimen.max_fit), color, 9)
-			gui.drawText(0, 24+120, "fit: " .. tostring(new_fit), color, 9)
-			
-			gui.drawText(0, 24+130, "gen: " .. tostring(generation_count), color, 9)
-			gui.drawText(0, 24+140, "stale: " .. tostring(stale), color, 9)
-			gui.drawText(0, 24+150, "in track: " .. tostring(in_track), color, 9)
-			
-			
-			
-			generate_input(specimen, x, y)
-			
-			joypad.set(inputs)
-			emu.frameadvance()
+				local new_fit =  get_fitness_alpha(x, y)
+				local corrected_fit = new_fit
+				--local in_track = is_in_track(x, y, track)
+				--if is_in_track(x, y, track) then
+				--	corrected_fit = new_fit * fit_correction
+				--end
+				
+				if (specimen.max_fit < corrected_fit) and (corrected_fit <= 6.0) then
+					specimen.max_fit = corrected_fit
+					
+					if specimen.max_fit > maximum_fit then
+						maximum_fit = specimen.max_fit
+						max_fit_change = true
+					end
+					stale = 0
+				else
+					stale = stale + 1
+				end
+
+				gui.drawText(0, 24+65, "gen size: " .. tostring(gen_size), color, 9)
+				gui.drawText(0, 24+110, "max fit: " .. tostring(specimen.max_fit), color, 9)
+				gui.drawText(0, 24+120, "fit: " .. tostring(new_fit), color, 9)
+				
+				gui.drawText(0, 24+130, "gen: " .. tostring(generation_count), color, 9)
+				gui.drawText(0, 24+140, "stale: " .. tostring(stale), color, 9)
+				--gui.drawText(0, 24+150, "in track: " .. tostring(in_track), color, 9)
+				
+				
+				
+				generate_input(specimen, x, y)
+				
+				joypad.set(inputs)
+				emu.frameadvance()
+			end
 		end
 		
 		if max_fit_change then 
@@ -579,5 +599,6 @@ while true do
 		break
 	end
 	
+	collectgarbage()
 	
 end
