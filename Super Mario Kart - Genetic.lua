@@ -32,13 +32,12 @@ track = {}
 
 track_size = 4100
 
-
-species_counter = 1
-
 -- Genetic Paramenters
 elitism_level = 3
 num_specimens = 100
 mutation_rate = 1
+
+species_counter = 0
 
 -- State parameters
 
@@ -87,6 +86,42 @@ function read_track()
 
 	end
 	f:close()
+end
+
+
+function read_track_from_image()
+	local f = io.open("track_image.txt","r")
+	local inner_outer = false
+	local count_x = 1
+	
+	for i=1, track_size do
+		track[i] = {}
+	end
+	
+	for line in f:lines() do
+		console.log(line)
+		local l = line:gsub("^%s*(.-)%s*$", "%1")
+		local num_iter = string.gmatch(l,'[0-9]+')
+		local count_x = 1
+		while true do
+			local i = num_iter()
+			if i == nil then
+				break
+			end
+			
+			if i == 1 then
+				track[count_x][count_y] = true
+			else
+				track[count_x][count_y] = false
+			end
+			
+			count_y = count_y + 1
+		end
+
+		count_x = count_x + 1
+	end
+	f:close()
+	--collectgarbage()
 end
 
 function gen_track()
@@ -514,6 +549,7 @@ maximum_fit = 0
 max_fit_change = false
 
 --read_track()
+read_track_from_image()
 --gen_track()
 
 while true do
@@ -521,7 +557,7 @@ while true do
 	-- run a generation
 	for i, specimen in pairs(pool.specimens) do
 	
-		savestate.load(Filename);
+		--savestate.load(Filename);
 		stale = 0
 		specimen = pool.specimens[i]
 		specimen.max_fit = 0
@@ -545,12 +581,12 @@ while true do
 
 				local new_fit =  get_fitness_alpha(x, y)
 				local corrected_fit = new_fit
-				--local in_track = is_in_track(x, y, track)
-				--if is_in_track(x, y, track) then
-				--	corrected_fit = new_fit * fit_correction
-				--end
+				local in_track = is_in_track(x, y, track)
+				if is_in_track(x, y, track) then
+					corrected_fit = new_fit * fit_correction
+				end
 				
-				if (specimen.max_fit < corrected_fit) and (corrected_fit <= 6.0) then
+				if (specimen.max_fit < corrected_fit) and (corrected_fit < 6.0) then
 					specimen.max_fit = corrected_fit
 					
 					if specimen.max_fit > maximum_fit then
@@ -568,13 +604,11 @@ while true do
 				
 				gui.drawText(0, 24+130, "gen: " .. tostring(generation_count), color, 9)
 				gui.drawText(0, 24+140, "stale: " .. tostring(stale), color, 9)
-				--gui.drawText(0, 24+150, "in track: " .. tostring(in_track), color, 9)
+				gui.drawText(0, 24+150, "in track: " .. tostring(in_track), color, 9)
+
+				--generate_input(specimen, x, y)
 				
-				
-				
-				generate_input(specimen, x, y)
-				
-				joypad.set(inputs)
+				--joypad.set(inputs)
 				emu.frameadvance()
 			end
 		end
@@ -586,7 +620,7 @@ while true do
 		
 	end
 	
-	save_population()
+	--save_population()
 
 	new_generation()
 	generation_count = generation_count +1
