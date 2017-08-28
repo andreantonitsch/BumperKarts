@@ -39,14 +39,17 @@ num_specimens = 100
 mutation_rate = 1
 
 -- State parameters
+
+sin_state = false
+
 poli_length = 10
 exp_start_range = {-2.0, 2.0}
 coef_start_range = {-20.0, 20.0}
 
-accelexp_mutation_range = {-0.1, 0.1}
-accelcoef_mutation_range = {-1.0, 2.0}
-turnexp_mutation_range = {-0.1, 0.1}
-turncoef_mutation_range = {-1.0, 2.0}
+accelexp_mutation_range = {-0.1, 1.0}
+accelcoef_mutation_range = {-1.0, 5.0}
+turnexp_mutation_range = {-0.1, 1.0}
+turncoef_mutation_range = {-1.0, 5.0}
 
 fit_correction = 0.75
 
@@ -196,6 +199,7 @@ function get_fitness_alpha( x, y)
 	
 end
 
+
 function clearInput()
 	
 	for i = 1,#ButtonNames do
@@ -214,6 +218,24 @@ function print_mario_position()
 
 end
 -- END helper functions
+
+function new_pool()
+
+	local pool = {}
+	
+	pool.specimens = {}
+	
+	for i=1, num_specimens do
+	
+		local specimen = new_specimen()
+		table.insert(pool.specimens, specimen)
+		
+	end 
+	
+	return pool
+
+end
+
 
 function new_specimen()
 	
@@ -247,23 +269,6 @@ function new_specimen()
 	species_counter = species_counter +1
 	
 	return specimen
-
-end
-
-function new_pool()
-
-	local pool = {}
-	
-	pool.specimens = {}
-	
-	for i=1, num_specimens do
-	
-		local specimen = new_specimen()
-		table.insert(pool.specimens, specimen)
-		
-	end 
-	
-	return pool
 
 end
 
@@ -326,6 +331,121 @@ function breed_specimen(spec1, spec2)
 	
 end
 
+function save_population()
+	local f = io.open("generation".. tostring(generation_count) ..".txt","w")
+	f:write(tostring(num_specimens) .. "\n")
+	f:write(tostring(poli_length) .. "\n")
+	
+	for i, spec in pairs(pool.specimens) do
+	
+		f:write(tostring(spec.max_fit) .. " ")
+		
+		for j = 1, poli_length do
+			f:write(tostring(spec.accel_coeficients[j]) .. " ")
+		end
+		
+		for j = 1, poli_length do
+			f:write(tostring(spec.accel_exponents[j]) .. " ")
+		end
+		
+		for j = 1, poli_length do
+			f:write(tostring(spec.turn_coeficients[j]) .. " ")
+		end
+		
+		for j = 1, poli_length do
+			f:write(tostring(spec.turn_exponents[j]) .. " ")
+		end
+		
+		f:write("\n")
+	end
+	
+	f:close()
+	
+end
+
+if not sin_state then
+
+	function generate_input(specimen, x, y)
+
+		local accel = 0
+		local turn = 0
+
+		for i=1, poli_length, 2 do
+			
+			accel = accel + (specimen.accel_coeficients[i] * (math.pow(x, specimen.accel_exponents[i])))
+			accel = accel + (specimen.accel_coeficients[i+1] * (math.pow(y, specimen.accel_exponents[i+1])))
+			
+			turn = turn + (specimen.turn_coeficients[i] * (math.pow(x, specimen.turn_exponents[i])))
+			turn = turn + (specimen.turn_coeficients[i+1] * (math.pow(y, specimen.turn_exponents[i+1])))
+			
+		end
+		
+		local right = accel >= 0 
+		local left = turn >= 0 
+
+		
+		gui.drawText(0, 24+160, "turn: " .. tostring(turn), color, 9)
+		gui.drawText(0, 24+170, "accel: " .. tostring(accel), color, 9)
+		
+		inputs["P1 " .. ButtonNames[1]] = true
+		if right and left then
+			inputs["P1 " .. ButtonNames[3]] = false
+			inputs["P1 " .. ButtonNames[2]] = false
+		else
+			inputs["P1 " .. ButtonNames[3]] = right
+			inputs["P1 " .. ButtonNames[2]] = left
+		end
+
+	end
+	
+else
+
+	function generate_input(specimen, x, y)
+
+		local accel = 0
+		local turn = 0
+
+		for i=1, poli_length, 2 do
+			
+			accel = accel + (specimen.accel_coeficients[i] * (math.pow(x, specimen.accel_exponents[i])))
+			accel = accel + (specimen.accel_coeficients[i+1] * (math.pow(y, specimen.accel_exponents[i+1])))
+			
+			turn = turn + (specimen.turn_coeficients[i] * (math.pow(x, specimen.turn_exponents[i])))
+			turn = turn + (specimen.turn_coeficients[i+1] * (math.pow(y, specimen.turn_exponents[i+1])))
+			
+		end
+		
+		accel = math.sin(accel)
+		turn = math.sin(turn)
+		
+		inputs["P1 " .. ButtonNames[1]] = true
+		
+		--if accel >= 0 then
+		--	inputs["P1 " .. ButtonNames[1]] = true
+		--else
+		--	inputs["P1 " .. ButtonNames[1]] = false
+		--end
+		
+		gui.drawText(0, 24+160, "turn: " .. tostring(turn), color, 9)
+		gui.drawText(0, 24+170, "accel: " .. tostring(accel), color, 9)
+		
+		if (turn >= -0.33 and turn <= 0.33) then
+			inputs["P1 " .. ButtonNames[3]] = false
+			inputs["P1 " .. ButtonNames[2]] = false
+		elseif turn < -0.33 then
+			inputs["P1 " .. ButtonNames[2]] = true
+			inputs["P1 " .. ButtonNames[3]] = false
+		else
+			inputs["P1 " .. ButtonNames[2]] = false
+			inputs["P1 " .. ButtonNames[3]] = true
+		end
+		
+
+	end
+
+	
+end
+
 function cull_bottomhalf()
 	
 	local specimens = pool.specimens
@@ -371,80 +491,7 @@ function new_generation()
 	gen_size = #pool.specimens
 end
 
-function generate_input(specimen, x, y)
 
-	local accel = 0
-	local turn = 0
-
-	for i=1, poli_length, 2 do
-		
-		accel = accel + (specimen.accel_coeficients[i] * (math.pow(x, specimen.accel_exponents[i])))
-		accel = accel + (specimen.accel_coeficients[i+1] * (math.pow(y, specimen.accel_exponents[i+1])))
-		
-		turn = turn + (specimen.turn_coeficients[i] * (math.pow(x, specimen.turn_exponents[i])))
-		turn = turn + (specimen.turn_coeficients[i+1] * (math.pow(y, specimen.turn_exponents[i+1])))
-		
-	end
-	
-	accel = math.sin(accel)
-	turn = math.sin(turn)
-	
-	inputs["P1 " .. ButtonNames[1]] = true
-	
-	--if accel >= 0 then
-	--	inputs["P1 " .. ButtonNames[1]] = true
-	--else
-	--	inputs["P1 " .. ButtonNames[1]] = false
-	--end
-	
-	gui.drawText(0, 24+160, "turn: " .. tostring(turn), color, 9)
-	gui.drawText(0, 24+170, "accel: " .. tostring(accel), color, 9)
-	
-	if (turn >= -0.33 and turn <= 0.33) then
-		inputs["P1 " .. ButtonNames[3]] = false
-		inputs["P1 " .. ButtonNames[2]] = false
-	elseif turn < -0.33 then
-		inputs["P1 " .. ButtonNames[2]] = true
-		inputs["P1 " .. ButtonNames[3]] = false
-	else
-		inputs["P1 " .. ButtonNames[2]] = false
-		inputs["P1 " .. ButtonNames[3]] = true
-	end
-	
-
-end
-
-function save_population()
-	local f = io.open("generation".. tostring(generation_count) ..".txt","w")
-	f:write(tostring(num_specimens) .. "\n")
-	f:write(tostring(poli_length) .. "\n")
-	
-	for i, spec in pairs(pool.specimens) do
-	
-		f:write(tostring(spec.max_fit) .. " ")
-		
-		for j = 1, poli_length do
-			f:write(tostring(spec.accel_coeficients[j]) .. " ")
-		end
-		
-		for j = 1, poli_length do
-			f:write(tostring(spec.accel_exponents[j]) .. " ")
-		end
-		
-		for j = 1, poli_length do
-			f:write(tostring(spec.turn_coeficients[j]) .. " ")
-		end
-		
-		for j = 1, poli_length do
-			f:write(tostring(spec.turn_exponents[j]) .. " ")
-		end
-		
-		f:write("\n")
-	end
-	
-	f:close()
-	
-end
 
 function load_population()
 
@@ -467,6 +514,7 @@ while true do
 		savestate.load(Filename);
 		stale = 0
 		specimen = pool.specimens[i]
+		specimen.max_fit = 0
 		
 		-- run a species
 		while  stale < 150 do
@@ -475,7 +523,6 @@ while true do
 			
 			gui.drawText(0, 24+80, "x: " .. tostring(x), color, 9)
 			gui.drawText(0, 24+95, "y: " .. tostring(y), color, 9)
-			
 
 			local new_fit =  get_fitness_alpha(x, y)
 			local corrected_fit = new_fit
