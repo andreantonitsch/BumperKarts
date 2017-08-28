@@ -549,7 +549,7 @@ maximum_fit = 0
 max_fit_change = false
 
 --read_track()
-read_track_from_image()
+--read_track_from_image()
 --gen_track()
 
 while true do
@@ -557,7 +557,7 @@ while true do
 	-- run a generation
 	for i, specimen in pairs(pool.specimens) do
 	
-		--savestate.load(Filename);
+		savestate.load(Filename);
 		stale = 0
 		specimen = pool.specimens[i]
 		specimen.max_fit = 0
@@ -582,9 +582,9 @@ while true do
 				local new_fit =  get_fitness_alpha(x, y)
 				local corrected_fit = new_fit
 				local in_track = is_in_track(x, y, track)
-				if is_in_track(x, y, track) then
-					corrected_fit = new_fit * fit_correction
-				end
+				-- if is_in_track(x, y, track) then
+					-- corrected_fit = new_fit * fit_correction
+				-- end
 				
 				if (specimen.max_fit < corrected_fit) and (corrected_fit < 6.0) then
 					specimen.max_fit = corrected_fit
@@ -604,11 +604,11 @@ while true do
 				
 				gui.drawText(0, 24+130, "gen: " .. tostring(generation_count), color, 9)
 				gui.drawText(0, 24+140, "stale: " .. tostring(stale), color, 9)
-				gui.drawText(0, 24+150, "in track: " .. tostring(in_track), color, 9)
+				--gui.drawText(0, 24+150, "in track: " .. tostring(in_track), color, 9)
 
-				--generate_input(specimen, x, y)
+				generate_input(specimen, x, y)
 				
-				--joypad.set(inputs)
+				joypad.set(inputs)
 				emu.frameadvance()
 			end
 		end
@@ -620,7 +620,7 @@ while true do
 		
 	end
 	
-	--save_population()
+	save_population()
 
 	new_generation()
 	generation_count = generation_count +1
