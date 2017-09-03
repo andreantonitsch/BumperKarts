@@ -43,20 +43,74 @@ species_counter = 0
 
 sin_state = false
 
-poli_length = 12
+poli_length = 10
 exp_start_range = {-2.0, 2.0}
 coef_start_range = {-20.0, 20.0}
 
-accelexp_mutation_range = {-1, 2.0}
-accelcoef_mutation_range = {-5, 10.0}
-turnexp_mutation_range = {-1, 2.0}
-turncoef_mutation_range = {-5, 10.0}
+accelexp_mutation_range = {-1, 1.0}
+accelcoef_mutation_range = {-5, 5.0}
+turnexp_mutation_range = {-1, 1.0}
+turncoef_mutation_range = {-5, 5.0}
 
 fit_correction = 0.60
 
 -- START Map Localtion Functions
 inner_x,inner_y,outer_x,outer_y = {}, {}, {}, {}
 
+-- generation_to_load = "attempt_newfit/generation32.txt"
+--not working
+-- function read_generation()
+
+	-- local pool = {}
+	
+	-- pool.specimens = {}
+	
+	-- local f = io.open(generation_to_load,"r")
+	-- local t = f:read("*all")
+	-- local line_count = 1
+	-- for line in magiclines(t) do
+		-- if line_count > 2 then 
+			-- local line = line:gsub("^%s*(.-)%s*$", "%1")
+			
+			-- local num_iter = string.gmatch(line,'[0-9.-]+')
+			
+			-- local turn_coefs = {}
+			-- local turn_exps = {}
+			
+			-- local accel_coefs = {}
+			-- local accel_exps = {}
+			
+			-- for i=1, poli_length do
+				-- accel_coefs[i] = num_iter()
+				-- if line_count == 3 then
+					-- console.log(accel_coefs[i])
+				-- end
+			-- end 
+			
+			-- for i=1, poli_length do
+				-- accel_exps[i] = num_iter()
+			-- end 
+			
+			-- for i=1, poli_length do
+				-- turn_coefs[i] = num_iter()
+			-- end 
+			
+			-- for i=1, poli_length do
+				-- turn_exps[i] = num_iter()
+			-- end
+
+			-- local specimen = load_specimen(turn_coefs, turn_exps, accel_coefs, accel_exps)
+			-- table.insert(pool.specimens, specimen)
+		-- end
+		-- line_count = line_count + 1
+		-- console.log(line_count)
+	-- end
+	-- f:close()
+	-- console.log(line_count)
+	-- return pool
+-- end
+
+--Reads a track from the track file
 function read_track()
 	local f = io.open("track_points.txt","r")
 	local inner_outer = false
@@ -96,6 +150,7 @@ function magiclines(s)
         return s:gmatch("(.-)\n")
 end
 
+-- reads a track from an image generated text file
 function read_track_from_image()
 	local f = io.open("track_ascii2.txt","r")
 	local inner_outer = false
@@ -138,6 +193,7 @@ function read_track_from_image()
 	--collectgarbage()
 end
 
+--Generates track based on parsed text file
 function gen_track()
 		--generates the track - a 4000x4000 matrix of booleans
 		--true means that track[i][j] is in the main part of the track 
@@ -248,6 +304,11 @@ function angle_vectors(v1, v2)
 	return angle
 end
 
+
+-- Calculates fitness based on our model.
+-- Fitness in a certain position is equal to the angle between:
+-- the start vector: the vetor from origin to finish line
+-- the vector from origin to current x,y position
 function get_fitness_alpha( x, y)
 	-- corrects some odd edge cases. Ideally, we'd only track fitness moving 'forward'.
 	-- a better fitness function is needed for further accuracy.
@@ -264,25 +325,10 @@ function get_fitness_alpha( x, y)
 end
 
 
-function clearInput()
-	
-	for i = 1,#ButtonNames do
-		inputs["P1 " .. ButtonNames[i]] = false
-	end
-
-end
-
-function print_mario_position()
-
-	local x = memory.read_s16_le(px)
-	local y = memory.read_s16_le(py)
-	
-	gui.drawText(223, 24+80, x, color, 9)
-	gui.drawText(223, 24+95, y, color, 9)
-
-end
 -- END helper functions
 
+
+-- Populates a new pool of specimens
 function new_pool()
 
 	local pool = {}
@@ -300,7 +346,7 @@ function new_pool()
 
 end
 
-
+-- Creates a new specimen 
 function new_specimen()
 	
 	local specimen = {}
@@ -328,7 +374,25 @@ function new_specimen()
 	specimen.accel_exponents	= accel_exps 
 	
 	specimen.max_fit = 0.0
-	specimen.max_fit_oob = 0.0
+	specimen.id = species_counter
+	
+	species_counter = species_counter +1
+	
+	return specimen
+
+end
+
+function load_specimen(turn_coefs_list, turn_exps_list, accel_coefs_list, accel_exps_list)
+	
+	local specimen = {}
+	
+	specimen.turn_coeficients	= turn_coefs_list
+	specimen.turn_exponents	= turn_exps_list
+	
+	specimen.accel_coeficients	= accel_coefs_list
+	specimen.accel_exponents	= accel_exps_list 
+	
+	specimen.max_fit = 0.0
 	specimen.id = species_counter
 	
 	species_counter = species_counter +1
@@ -404,7 +468,6 @@ function save_population()
 	for i, spec in pairs(pool.specimens) do
 	
 		f:write(tostring(spec.max_fit) .. " ")
-		f:write(tostring(spec.max_fit_oob) .. " ")
 		
 		for j = 1, poli_length do
 			f:write(tostring(spec.accel_coeficients[j]) .. " ")
@@ -510,11 +573,7 @@ function cull_bottomhalf()
 	
 	local specimens = pool.specimens
 	table.sort(specimens, function(s1, s2)
-		if (s1.max_fit ~= s2.max_fit) then
-			return (s1.max_fit > s2.max_fit)
-		else
-			return (s1.max_fit_oob > s2.max_fit_oob)
-		end
+		return (s1.max_fit > s2.max_fit)
 	end)
 	
 	for i=1, math.floor(num_specimens/2) do
@@ -531,11 +590,7 @@ function new_generation()
 	
 	local specimens = pool.specimens
 	table.sort(specimens, function(s1, s2)
-		if (s1.max_fit ~= s2.max_fit) then
-			return (s1.max_fit > s2.max_fit)
-		else
-			return (s1.max_fit_oob > s2.max_fit_oob)
-		end
+		return (s1.max_fit > s2.max_fit)
 	end)
 	
 	local size = #specimens
@@ -547,12 +602,9 @@ function new_generation()
 		
 		if i > elitism_level then
 			specimens[i] = mutate_specimen(spec)
-			local new_spec = new_specimen()
-			table.insert(pool.specimens, new_spec)
-		else
-			table.insert(pool.specimens, specimen)
 		end
-
+		
+		table.insert(pool.specimens, specimen)
 		count = count +1
 		if count > size then
 			break
@@ -564,21 +616,16 @@ end
 
 
 
-function load_population()
-
-end
-
-
-pool = new_pool()
+--pool = new_pool()
+pool = read_generation()
 generation_count = 0
 gen_size = 0
 maximum_fit = 0
-maximum_fit_oob = 0
 max_fit_change = false
-max_fit_change_oob = false
+
 
 --read_track()
-read_track_from_image()
+--read_track_from_image()
 --gen_track()
 
 while true do
@@ -590,7 +637,6 @@ while true do
 		stale = 0
 		specimen = pool.specimens[i]
 		specimen.max_fit = 0
-		specimen.max_fit_oob = 0
 		local checkpoint_reached = false
 		-- run a species
 		while  stale < 150 do
@@ -610,39 +656,24 @@ while true do
 				gui.drawText(0, 24+95, "y: " .. tostring(y), color, 9)
 
 				local new_fit =  get_fitness_alpha(x, y)
-				local in_track = is_in_track(x, y, track)
-				if is_in_track(x, y, track) then
-
-					if (specimen.max_fit < new_fit) and (new_fit < 6.0) then
-						specimen.max_fit = new_fit
-						
-						if specimen.max_fit > maximum_fit then
-							maximum_fit = specimen.max_fit
-							max_fit_change = true
-						end
-						stale = 0
-					else
-						stale = stale + 1
-					end
+				local corrected_fit = new_fit
+				--local in_track = is_in_track(x, y, track)
+				--if not is_in_track(x, y, track) then
+				--	corrected_fit = new_fit * fit_correction
+				--end
+				
+				if (specimen.max_fit < corrected_fit) and (corrected_fit < 6.0) then
+					specimen.max_fit = corrected_fit
 					
-				else
-
-					if (specimen.max_fit_oob < new_fit) and (new_fit < 6.0) then
-						specimen.max_fit_oob = new_fit
-						
-						if specimen.max_fit_oob > maximum_fit_oob then
-							maximum_fit_oob = specimen.max_fit_oob
-							max_fit_change_oob = true
-						end
-						stale = 0
-					else
-						stale = stale + 1
+					if specimen.max_fit > maximum_fit then
+						maximum_fit = specimen.max_fit
+						max_fit_change = true
 					end
-				
+					stale = 0
+				else
+					stale = stale + 1
 				end
-				
-				
-				gui.drawText(0, 24+45, "specimen: " .. tostring(i), color, 9)
+
 				gui.drawText(0, 24+65, "gen size: " .. tostring(gen_size), color, 9)
 				gui.drawText(0, 24+110, "max fit: " .. tostring(specimen.max_fit), color, 9)
 				gui.drawText(0, 24+120, "fit: " .. tostring(new_fit), color, 9)
@@ -662,18 +693,14 @@ while true do
 			console.log("maximum fitness" .. tostring(maximum_fit))
 			max_fit_change = false
 		end
-		if max_fit_change_oob then 
-			console.log("maximum fitness_oob " .. tostring(maximum_fit_oob ))
-			max_fit_change_oob  = false
-		end
 		
 	end
 	
-	save_population()
+	--save_population()
 
-	new_generation()
-	generation_count = generation_count +1
-	console.log(gen_size)
+	--new_generation()
+	--generation_count = generation_count +1
+	--console.log(gen_size)
 	
 	--mutation_rate = mutation_rate - 0.001
 
