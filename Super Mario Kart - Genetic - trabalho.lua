@@ -346,7 +346,12 @@ function new_pool()
 
 end
 
--- Creates a new specimen 
+-- Creates a new specimen
+-- the data a specimen hold are their fitnesss
+-- and id
+-- and the state for the genetic algorithm:
+-- 4 lists of coeficients and exponents, used to calculate whether yoshi should turn
+-- based on x and y
 function new_specimen()
 	
 	local specimen = {}
@@ -382,24 +387,24 @@ function new_specimen()
 
 end
 
-function load_specimen(turn_coefs_list, turn_exps_list, accel_coefs_list, accel_exps_list)
+-- function load_specimen(turn_coefs_list, turn_exps_list, accel_coefs_list, accel_exps_list)
 	
-	local specimen = {}
+	-- local specimen = {}
 	
-	specimen.turn_coeficients	= turn_coefs_list
-	specimen.turn_exponents	= turn_exps_list
+	-- specimen.turn_coeficients	= turn_coefs_list
+	-- specimen.turn_exponents	= turn_exps_list
 	
-	specimen.accel_coeficients	= accel_coefs_list
-	specimen.accel_exponents	= accel_exps_list 
+	-- specimen.accel_coeficients	= accel_coefs_list
+	-- specimen.accel_exponents	= accel_exps_list 
 	
-	specimen.max_fit = 0.0
-	specimen.id = species_counter
+	-- specimen.max_fit = 0.0
+	-- specimen.id = species_counter
 	
-	species_counter = species_counter +1
+	-- species_counter = species_counter +1
 	
-	return specimen
+	-- return specimen
 
-end
+-- end
 
 --copies from 1 into 2
 function copy_genome(spec1, spec2)
@@ -415,6 +420,8 @@ function copy_genome(spec1, spec2)
 	
 end
 
+-- Randomly adds a mutation for one index of genes in the genome.
+-- the mutation gets smaller as the simulation progresses.
 function mutate_specimen(spec1)
 	
 	local i = math.random(1, poli_length)
@@ -426,6 +433,8 @@ function mutate_specimen(spec1)
 	return spec1
 end
 
+-- Breeding function
+-- randomly assigns elements from each genome. Pairing expoent and coeficients.
 function breed_specimen(spec1, spec2)
 	
 	local specimen = new_specimen()
@@ -492,83 +501,46 @@ function save_population()
 	
 end
 
-if not sin_state then
 
-	function generate_input(specimen, x, y)
+-- Generates the input for the specimen based on its location
+-- Input is a function of x and y
+-- each button is assigned a polynom, the result of said polinoms are compared
+-- When the functions are both same-signed, yoshi goes forward, otherwise yoshi turns the direction of the positive one
+function generate_input(specimen, x, y)
 
-		local accel = 0
-		local turn = 0
+	local accel = 0
+	local turn = 0
 
-		for i=1, poli_length, 2 do
-			
-			accel = accel + (specimen.accel_coeficients[i] * (math.pow(x, specimen.accel_exponents[i])))
-			accel = accel + (specimen.accel_coeficients[i+1] * (math.pow(y, specimen.accel_exponents[i+1])))
-			
-			turn = turn + (specimen.turn_coeficients[i] * (math.pow(x, specimen.turn_exponents[i])))
-			turn = turn + (specimen.turn_coeficients[i+1] * (math.pow(y, specimen.turn_exponents[i+1])))
-			
-		end
+	for i=1, poli_length, 2 do
 		
-		local right = accel >= 0 
-		local left = turn >= 0 
-
+		accel = accel + (specimen.accel_coeficients[i] * (math.pow(x, specimen.accel_exponents[i])))
+		accel = accel + (specimen.accel_coeficients[i+1] * (math.pow(y, specimen.accel_exponents[i+1])))
 		
-		gui.drawText(0, 24+160, "left:  " .. tostring(turn), color, 9)
-		gui.drawText(0, 24+170, "right: " .. tostring(accel), color, 9)
+		turn = turn + (specimen.turn_coeficients[i] * (math.pow(x, specimen.turn_exponents[i])))
+		turn = turn + (specimen.turn_coeficients[i+1] * (math.pow(y, specimen.turn_exponents[i+1])))
 		
-		inputs["P1 " .. ButtonNames[1]] = true
-		if right and left then
-			inputs["P1 " .. ButtonNames[3]] = false
-			inputs["P1 " .. ButtonNames[2]] = false
-		else
-			inputs["P1 " .. ButtonNames[3]] = right
-			inputs["P1 " .. ButtonNames[2]] = left
-		end
-
 	end
 	
-else
-
-	function generate_input(specimen, x, y)
-
-		local accel = 0
-		local turn = 0
-
-		for i=1, poli_length, 2 do
-			
-			accel = accel + (specimen.accel_coeficients[i] * (math.pow(x, specimen.accel_exponents[i])))
-			accel = accel + (specimen.accel_coeficients[i+1] * (math.pow(y, specimen.accel_exponents[i+1])))
-			
-			turn = turn + (specimen.turn_coeficients[i] * (math.pow(x, specimen.turn_exponents[i])))
-			turn = turn + (specimen.turn_coeficients[i+1] * (math.pow(y, specimen.turn_exponents[i+1])))
-			
-		end
-		
-		accel = math.sin(accel)
-		turn = math.sin(turn)
-		
-		inputs["P1 " .. ButtonNames[1]] = true
-		
-		gui.drawText(0, 24+160, "turn: " .. tostring(turn), color, 9)
-		gui.drawText(0, 24+170, "accel: " .. tostring(accel), color, 9)
-		
-		if (turn >= -0.33 and turn <= 0.33) then
-			inputs["P1 " .. ButtonNames[3]] = false
-			inputs["P1 " .. ButtonNames[2]] = false
-		elseif turn < -0.33 then
-			inputs["P1 " .. ButtonNames[2]] = true
-			inputs["P1 " .. ButtonNames[3]] = false
-		else
-			inputs["P1 " .. ButtonNames[2]] = false
-			inputs["P1 " .. ButtonNames[3]] = true
-		end
-		
-
-	end
+	local right = accel >= 0 
+	local left = turn >= 0 
 
 	
+	gui.drawText(0, 24+160, "left:  " .. tostring(turn), color, 9)
+	gui.drawText(0, 24+170, "right: " .. tostring(accel), color, 9)
+	
+	inputs["P1 " .. ButtonNames[1]] = true
+	if right and left then
+		inputs["P1 " .. ButtonNames[3]] = false
+		inputs["P1 " .. ButtonNames[2]] = false
+	else
+		inputs["P1 " .. ButtonNames[3]] = right
+		inputs["P1 " .. ButtonNames[2]] = left
+	end
+
 end
 
+
+-- Culls worst half fitness-wise of the pool
 function cull_bottomhalf()
 	
 	local specimens = pool.specimens
@@ -582,7 +554,11 @@ function cull_bottomhalf()
 	
 end
 
-
+-- Calculates the new generation-
+-- Culls bottom half
+-- Preserves the top %elitism_level% specimens
+-- crossover between each one of the remaining specimens to replainish the culled specimens
+-- mutates each of the non preserved surviving specimens from last generation
 function new_generation()
 	
 	cull_bottomhalf()
@@ -625,7 +601,7 @@ max_fit_change = false
 
 
 --read_track()
---read_track_from_image()
+read_track_from_image()
 --gen_track()
 
 while true do
@@ -638,7 +614,14 @@ while true do
 		specimen = pool.specimens[i]
 		specimen.max_fit = 0
 		local checkpoint_reached = false
+		
 		-- run a species
+		-- This loop interacts with the emulator.
+		-- Each iteration advances a frame on the simulation
+		-- Stale constrols the staleness of a specimen. Runs with stale fitness for 150 frames stop.
+        -- The loop calculates fitness for the current position
+		-- then it calculates the new input based on the current specimen genome.
+		
 		while  stale < 150 do
 			local x = memory.read_s16_le(px)
 			local y = memory.read_s16_le(py)
@@ -657,6 +640,9 @@ while true do
 
 				local new_fit =  get_fitness_alpha(x, y)
 				local corrected_fit = new_fit
+				
+				-- Track related fitness
+				-- Wasnt active for the experiments
 				--local in_track = is_in_track(x, y, track)
 				--if not is_in_track(x, y, track) then
 				--	corrected_fit = new_fit * fit_correction
@@ -696,18 +682,23 @@ while true do
 		
 	end
 	
-	--save_population()
-
-	--new_generation()
-	--generation_count = generation_count +1
-	--console.log(gen_size)
 	
-	--mutation_rate = mutation_rate - 0.001
+	-- does the preparation for next cycle.
+	-- Logs the population (currently kinda wonky)
+	-- Populates a new generation
+	-- and corrects the next generation
+	save_population()
+
+	new_generation()
+	generation_count = generation_count +1
+	console.log(gen_size)
+	
+	mutation_rate = mutation_rate - 0.001
 
 	
-	--if mutation_rate  < 0.01 then
-	--	break
-	--end
+	if mutation_rate  < 0.01 then
+		break
+	end
 	
 	collectgarbage()
 	
