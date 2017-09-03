@@ -615,7 +615,7 @@ while true do
 		specimen.max_fit = 0
 		local checkpoint_reached = false
 		
-		-- run a species
+		-- run a specimen
 		-- This loop interacts with the emulator.
 		-- Each iteration advances a frame on the simulation
 		-- Stale constrols the staleness of a specimen. Runs with stale fitness for 150 frames stop.
